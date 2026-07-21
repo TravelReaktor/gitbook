@@ -26,7 +26,12 @@ import {
     normalizeRequestURL,
     throwIfDataError,
 } from '@/lib/data';
-import { GITBOOK_OAUTH_SERVER_URL, isGitBookAssetsHostURL, isGitBookHostURL } from '@/lib/env';
+import {
+    GITBOOK_DEFAULT_SITE,
+    GITBOOK_OAUTH_SERVER_URL,
+    isGitBookAssetsHostURL,
+    isGitBookHostURL,
+} from '@/lib/env';
 import { getImageResizingContextId } from '@/lib/images';
 import { MiddlewareHeaders } from '@/lib/middleware';
 import {
@@ -710,6 +715,23 @@ function getSiteURLFromRequest(request: NextRequest): URLWithMode | null {
                 request.nextUrl.searchParams
             ),
             mode: 'url',
+        };
+    }
+
+    // Self-host convenience: serve a single configured site at the server root,
+    // so it's reachable without the `/url/<host>/<path>` scheme. The `/url/` scheme
+    // above still works; only non-`/url/` main-host requests fall through to here.
+    if (GITBOOK_DEFAULT_SITE && isMainHost) {
+        return {
+            url: appendQueryParams(
+                new URL(
+                    `https://${GITBOOK_DEFAULT_SITE}${
+                        request.nextUrl.pathname === '/' ? '' : request.nextUrl.pathname
+                    }`
+                ),
+                request.nextUrl.searchParams
+            ),
+            mode: 'url-host',
         };
     }
 

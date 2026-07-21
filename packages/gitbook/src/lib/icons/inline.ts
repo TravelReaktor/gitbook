@@ -225,7 +225,9 @@ async function getInlineIconSource(
     const cacheKey = getInlineIconSourceKey(style, icon);
     const existing = rawSvgPromises.get(cacheKey);
     if (existing) {
-        return existing;
+        // The cached promise may still be in flight and later reject; that rejection isn't
+        // covered by the try/catch below since it belongs to the original caller, so guard here too.
+        return existing.catch(() => null);
     }
 
     try {

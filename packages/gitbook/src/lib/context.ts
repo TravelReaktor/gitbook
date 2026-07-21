@@ -29,7 +29,7 @@ import type {
 import assertNever from 'assert-never';
 import { notFound } from 'next/navigation';
 import { assert } from 'ts-essentials';
-import { GITBOOK_URL } from './env';
+import { GITBOOK_DEFAULT_SITE, GITBOOK_URL } from './env';
 import { type ImageResizer, createImageResizer } from './images';
 import { type GitBookLinker, createLinker, linkerForPublishedURL } from './links';
 
@@ -207,12 +207,28 @@ export function getBaseContext(input: {
     });
 
     const gitbookURL = GITBOOK_URL ? new URL(GITBOOK_URL) : undefined;
+
+    // When serving the configured default site at the server root (see GITBOOK_DEFAULT_SITE),
+    // strip its base path so generated links are root-relative and don't duplicate it on navigation.
+    const trimTrailingSlash = (path: string) => path.replace(/\/+$/, '');
+    const servingDefaultSiteAtRoot =
+        urlMode === 'url-host' &&
+        !!GITBOOK_DEFAULT_SITE &&
+        trimTrailingSlash(`${siteURL.host}${siteURLData.siteBasePath}`) ===
+            trimTrailingSlash(GITBOOK_DEFAULT_SITE);
+    const stripSiteBasePath = (path: string) => {
+        const base = trimTrailingSlash(siteURLData.siteBasePath);
+        return path.startsWith(base) ? path.slice(base.length) || '/' : path;
+    };
+
     const linker =
         urlMode === 'url-host'
             ? createLinker({
                   host: siteURL.host,
-                  siteBasePath: siteURLData.siteBasePath,
-                  spaceBasePath: siteURLData.basePath,
+                  siteBasePath: servingDefaultSiteAtRoot ? '/' : siteURLData.siteBasePath,
+                  spaceBasePath: servingDefaultSiteAtRoot
+                      ? stripSiteBasePath(siteURLData.basePath)
+                      : siteURLData.basePath,
               })
             : createLinker({
                   protocol: gitbookURL?.protocol,

@@ -56,6 +56,7 @@ const nextConfig = {
         GITBOOK_ICONS_URL: process.env.GITBOOK_ICONS_URL,
         GITBOOK_ICONS_TOKEN: process.env.GITBOOK_ICONS_TOKEN,
         GITBOOK_URL: process.env.GITBOOK_URL,
+        GITBOOK_DEFAULT_SITE: process.env.GITBOOK_DEFAULT_SITE,
         GITBOOK_API_TOKEN: process.env.GITBOOK_API_TOKEN,
         GITBOOK_ASSETS_PREFIX: process.env.GITBOOK_ASSETS_PREFIX,
         GITBOOK_SECRET: process.env.GITBOOK_SECRET,

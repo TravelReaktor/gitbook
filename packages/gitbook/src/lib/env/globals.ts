@@ -25,6 +25,14 @@ export const GITBOOK_URL =
           '');
 
 /**
+ * Self-host convenience: when set, requests to the main host that don't use the
+ * `/url/<published-url>` dev scheme are served as this published site, at the server root.
+ * Lets a single self-hosted site be reached at `/` instead of `/url/<host>/<basePath>`.
+ * Value is the published site (host + optional base path), e.g. `icligo-1.gitbook.io/icligo-help-center`.
+ */
+export const GITBOOK_DEFAULT_SITE = process.env.GITBOOK_DEFAULT_SITE || undefined;
+
+/**
  * URL at which static assets are served.
  */
 export const GITBOOK_ASSETS_URL =
