@@ -224,7 +224,11 @@ export function getBaseContext(input: {
     const linker =
         urlMode === 'url-host'
             ? createLinker({
-                  host: siteURL.host,
+                  // When serving the default site at the root, absolute URLs (analytics `__evt`,
+                  // visitor claims, images, canonical…) must resolve to the serving origin, not the
+                  // published host — otherwise the browser blocks them cross-origin (CORS).
+                  protocol: servingDefaultSiteAtRoot ? gitbookURL?.protocol : undefined,
+                  host: servingDefaultSiteAtRoot ? gitbookURL?.host : siteURL.host,
                   siteBasePath: servingDefaultSiteAtRoot ? '/' : siteURLData.siteBasePath,
                   spaceBasePath: servingDefaultSiteAtRoot
                       ? stripSiteBasePath(siteURLData.basePath)

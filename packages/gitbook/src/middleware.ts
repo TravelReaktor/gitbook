@@ -70,7 +70,14 @@ export const config = {
     ],
 };
 
-type URLWithMode = { url: URL; mode: 'url' | 'url-host' };
+type URLWithMode = {
+    url: URL;
+    mode: 'url' | 'url-host';
+    // True when the request is served as GITBOOK_DEFAULT_SITE at the server root: the browser is on
+    // the local serving origin, not the published canonical host, so canonical redirects/links must
+    // stay on the request origin instead of bouncing to the published site.
+    servedAtRoot?: boolean;
+};
 
 export async function middleware(request: NextRequest) {
     try {
@@ -155,7 +162,7 @@ async function serveSiteRoutes(requestURL: URL, request: NextRequest) {
         return null;
     }
 
-    const { url: siteRequestURL, mode } = match;
+    const { url: siteRequestURL, mode, servedAtRoot } = match;
 
     // Normalize URL after extracting the URL from the request to make sure the client is redirected to the proper one
     const normalizationResponse = normalizeRequestURL(siteRequestURL);
@@ -349,7 +356,10 @@ async function serveSiteRoutes(requestURL: URL, request: NextRequest) {
         let incomingURL = requestURL;
         // For cases where the site is proxied, we use the canonical URL
         // as the incoming URL along with all the search params from the request.
-        if (mode !== 'url') {
+        // When serving the default site at the root, the browser is on the local origin (not the
+        // published host), so we keep the request URL — otherwise stripping the VA token would
+        // redirect the visitor to the published site instead of cleaning the local URL.
+        if (mode !== 'url' && !servedAtRoot) {
             incomingURL = siteCanonicalURL;
             incomingURL.search = requestURL.search;
         }
@@ -732,6 +742,7 @@ function getSiteURLFromRequest(request: NextRequest): URLWithMode | null {
                 request.nextUrl.searchParams
             ),
             mode: 'url-host',
+            servedAtRoot: true,
         };
     }
 
