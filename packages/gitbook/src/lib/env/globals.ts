@@ -19,8 +19,9 @@ export const GITBOOK_RUNTIME = (process.env.GITBOOK_RUNTIME ?? 'unknown') as
  */
 export const GITBOOK_URL =
     process.env.NODE_ENV === 'development'
-        ? 'http://localhost:3000'
-        : (process.env.GITBOOK_URL ??
+        ? (process.env.GITBOOK_URL ?? 'http://localhost:3000')
+        : // 'http://localhost:3000'
+          (process.env.GITBOOK_URL ??
           (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined) ??
           '');
 
@@ -37,8 +38,9 @@ export const GITBOOK_DEFAULT_SITE = process.env.GITBOOK_DEFAULT_SITE || undefine
  */
 export const GITBOOK_ASSETS_URL =
     process.env.NODE_ENV === 'development'
-        ? 'http://localhost:3000'
-        : process.env.GITBOOK_ASSETS_PREFIX;
+        ? (process.env.GITBOOK_URL ?? 'http://localhost:3000')
+        : // ? 'http://localhost:3000'
+          process.env.GITBOOK_ASSETS_PREFIX;
 
 /**
  * GitBook app URL.
@@ -125,10 +127,19 @@ export const GITBOOK_IMAGE_RESIZE_MODE = enforceEnum(
 );
 
 /**
- * Endpoint where icons are served.
+ * Endpoint where icons are served, for client-visible references (CSP, preconnect, hydration).
  */
 export const GITBOOK_ICONS_URL =
     process.env.GITBOOK_ICONS_URL || `${GITBOOK_ASSETS_URL || ''}/~gitbook/static/icons`;
+
+/**
+ * Base URL the server uses to fetch icons for itself (inline SVG resolution). Falls back to
+ * GITBOOK_URL (self, pinned to localhost in dev) rather than GITBOOK_ASSETS_URL, so the server
+ * never round-trips through a public-facing proxy/CDN to reach its own routes. An explicit
+ * GITBOOK_ICONS_URL still wins, since that points at a genuinely external icons service.
+ */
+export const GITBOOK_ICONS_INTERNAL_URL =
+    process.env.GITBOOK_ICONS_URL || `${GITBOOK_URL}/~gitbook/static/icons`;
 
 /**
  * Token passed to the icons endpoint.

@@ -196,7 +196,7 @@ function getGlobalVisitor({
                 credentials: 'include', // Make sure to send/receive cookies.
                 cache: 'no-cache',
                 mode: 'cors', // Need to use cors as we are on a different domain.
-                signal: AbortSignal.timeout(500),
+                signal: AbortSignal.timeout(5000),
             });
 
             if (!resp.ok) {

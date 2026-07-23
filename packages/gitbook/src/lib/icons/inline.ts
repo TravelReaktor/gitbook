@@ -16,8 +16,7 @@ import { type IconName, IconStyle } from '@gitbook/icons/types';
 import { GITBOOK_ICONS_ASSET_VERSION } from '@gitbook/icons/version';
 import pRetry from 'p-retry';
 
-import { getAssetURL } from '@/lib/assets';
-import { GITBOOK_ICONS_TOKEN, GITBOOK_ICONS_URL, GITBOOK_URL } from '@/lib/env';
+import { GITBOOK_ICONS_INTERNAL_URL, GITBOOK_ICONS_TOKEN, GITBOOK_URL } from '@/lib/env';
 import { joinPath, joinPathWithBaseURL } from '@/lib/paths';
 
 const rawSvgPromises = new Map<string, Promise<InlineIconSource | null>>();
@@ -249,7 +248,10 @@ async function getInlineIconSource(
         rawSvgPromises.set(cacheKey, request);
         return await request;
     } catch {
-        console.warn(`Failed to fetch icon ${icon} with style ${style} after multiple attempts`);
+        console.warn(
+            `Failed to fetch icon ${icon} with style ${style} after multiple attempts`,
+            getIconAssetURL(style, icon)
+        );
         // We don't want to store failed attempts in the cache. Otherwise it may crash subsequent attempts to fetch the same icon and will crash the entire page
         // It's very visible in dev, where the map will stay around
         rawSvgPromises.delete(cacheKey);
@@ -298,10 +300,11 @@ function getIconAssetURL(style: string, icon: string): string {
 
 function getIconAssetBaseURL(style: string): string {
     if (style === 'custom-icons') {
-        return getAssetURL('icons');
+        // Custom icons are always served by this app itself, never an external service.
+        return joinPathWithBaseURL(GITBOOK_URL, '~gitbook/static/icons');
     }
 
-    return GITBOOK_ICONS_URL;
+    return GITBOOK_ICONS_INTERNAL_URL;
 }
 
 function getAbsoluteIconAssetBaseURL(style: string): string {

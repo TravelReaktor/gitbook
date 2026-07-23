@@ -13,7 +13,6 @@ import { AIChatProvider } from '../AI';
 import type { RenderAIMessageOptions } from '../AI';
 import { AIChat, AskAITextSelection } from '../AIChat';
 import { AdaptiveVisitorContextProvider } from '../Adaptive';
-import { Announcement } from '../Announcement';
 import { SpacesDropdown, TranslationsDropdown } from '../Header/SpacesDropdown';
 import { InsightsProvider, VisitorProvider } from '../Insights';
 import { SearchContainer, getSearchBaseProps } from '../Search';
@@ -125,7 +124,7 @@ export function SpaceLayout(props: SpaceLayoutProps) {
 
     return (
         <SpaceLayoutServerContext {...props}>
-            <Announcement context={context} />
+            {/*<Announcement context={context} />*/}
             <Header withTopHeader={withTopHeader} variants={variants} context={context} />
             <NavigationLoader />
             {isAIChatEnabled(customization.ai?.mode) ? (

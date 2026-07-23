@@ -103,6 +103,8 @@ const nextConfig = {
             },
         ];
     },
+
+    allowedDevOrigins: ['dev.icligo.com', 'localhost'],
 };
 
 export default nextConfig;
