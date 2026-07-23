@@ -29,6 +29,7 @@ import {
 import {
     GITBOOK_DEFAULT_SITE,
     GITBOOK_OAUTH_SERVER_URL,
+    GITBOOK_URL,
     isGitBookAssetsHostURL,
     isGitBookHostURL,
 } from '@/lib/env';
@@ -66,7 +67,7 @@ import {
 } from './lib/tracking';
 export const config = {
     matcher: [
-        '/((?!_next/static|_next/image|~gitbook/static|~gitbook/revalidate|~gitbook/monitoring|~scalar/proxy).*)',
+        '/((?!_next/static|_next/image|~gitbook/static|~gitbook/revalidate|~gitbook/bff|~gitbook/monitoring|~scalar/proxy).*)',
     ],
 };
 
@@ -349,19 +350,23 @@ async function serveSiteRoutes(requestURL: URL, request: NextRequest) {
             );
         }
 
-        // We use the host/origin from the canonical URL to ensure the links are
-        // correctly generated when the site is proxied. e.g. https://proxy.gitbook.com/site/siteId/...
         const siteCanonicalURL = new URL(siteURLData.canonicalUrl);
+        const servingDefaultSiteAtRoot =
+            mode === 'url-host' && Boolean(GITBOOK_DEFAULT_SITE) && isMainHostRequest(request);
 
-        let incomingURL = requestURL;
-        // For cases where the site is proxied, we use the canonical URL
-        // as the incoming URL along with all the search params from the request.
-        // When serving the default site at the root, the browser is on the local origin (not the
-        // published host), so we keep the request URL — otherwise stripping the VA token would
-        // redirect the visitor to the published site instead of cleaning the local URL.
-        if (mode !== 'url' && !servedAtRoot) {
-            incomingURL = siteCanonicalURL;
+        let incomingURL: URL;
+        if (servingDefaultSiteAtRoot && GITBOOK_URL) {
+            // Keep visitor-auth redirects on the self-hosted origin where its cookie is stored.
+            incomingURL = new URL(
+                `${request.nextUrl.pathname}${request.nextUrl.search}`,
+                GITBOOK_URL
+            );
+        } else if (mode !== 'url') {
+            // Proxied sites use the canonical URL returned by the API.
+            incomingURL = new URL(siteCanonicalURL);
             incomingURL.search = requestURL.search;
+        } else {
+            incomingURL = new URL(requestURL);
         }
         //
         // Make sure the URL is clean of any va token after a successful lookup,
@@ -704,6 +709,15 @@ async function serveWithQueryAPIToken(input: {
  * - The request URL is matching `/url/:url`:
  *      URL is taken from the pathname.
  */
+function isMainHostRequest(request: NextRequest): boolean {
+    if (isGitBookHostURL(request.url)) {
+        return true;
+    }
+
+    const xForwardedHost = request.headers.get('x-forwarded-host');
+    return xForwardedHost ? isGitBookHostURL(new URL(`https://${xForwardedHost}`)) : false;
+}
+
 function getSiteURLFromRequest(request: NextRequest): URLWithMode | null {
     const xGitbookUrl = request.headers.get('x-gitbook-url');
     if (xGitbookUrl) {
@@ -713,7 +727,8 @@ function getSiteURLFromRequest(request: NextRequest): URLWithMode | null {
         };
     }
 
-    const isMainHost = isGitBookHostURL(request.url);
+    const xForwardedHost = request.headers.get('x-forwarded-host');
+    const isMainHost = isMainHostRequest(request);
     const isAssetsHost = isGitBookAssetsHostURL(request.url);
 
     // /url/:url requests on the main host
@@ -751,7 +766,6 @@ function getSiteURLFromRequest(request: NextRequest): URLWithMode | null {
         return null;
     }
 
-    const xForwardedHost = request.headers.get('x-forwarded-host');
     // The x-forwarded-host is set by Vercel for all requests
     // so we ignore it if the hostname is the same as the instance one.
     if (xForwardedHost) {

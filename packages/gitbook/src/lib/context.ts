@@ -33,6 +33,12 @@ import { GITBOOK_DEFAULT_SITE, GITBOOK_URL } from './env';
 import { type ImageResizer, createImageResizer } from './images';
 import { type GitBookLinker, createLinker, linkerForPublishedURL } from './links';
 
+const BASE_CUSTOMIZATION = {
+    trademark: {
+        enabled: false,
+    },
+} satisfies Partial<SiteCustomizationSettings>;
+
 /**
  * Data about the site URL. Provided by the middleware.
  * These data are stable between pages in the same site space.
@@ -224,10 +230,7 @@ export function getBaseContext(input: {
     const linker =
         urlMode === 'url-host'
             ? createLinker({
-                  // When serving the default site at the root, absolute URLs (analytics `__evt`,
-                  // visitor claims, images, canonical…) must resolve to the serving origin, not the
-                  // published host — otherwise the browser blocks them cross-origin (CORS).
-                  protocol: servingDefaultSiteAtRoot ? gitbookURL?.protocol : undefined,
+                  protocol: servingDefaultSiteAtRoot ? gitbookURL?.protocol : siteURL.protocol,
                   host: servingDefaultSiteAtRoot ? gitbookURL?.host : siteURL.host,
                   siteBasePath: servingDefaultSiteAtRoot ? '/' : siteURLData.siteBasePath,
                   spaceBasePath: servingDefaultSiteAtRoot
@@ -377,7 +380,7 @@ export async function fetchSiteContextByIds(
         assertNever(siteStructure, `cannot handle site structure of type ${siteStructure.type}`);
     })();
 
-    const customization = (() => {
+    const resolvedCustomization = (() => {
         if (ids.siteSpace) {
             const siteSpaceSettings = customizations.siteSpaces[ids.siteSpace];
             if (siteSpaceSettings) {
@@ -393,6 +396,11 @@ export async function fetchSiteContextByIds(
 
         return customizations.site;
     })();
+
+    const customization: SiteCustomizationSettings = {
+        ...resolvedCustomization,
+        ...BASE_CUSTOMIZATION,
+    };
 
     // override the title with the customization title
     // TODO: remove this hack once we have a proper way to handle site customizations

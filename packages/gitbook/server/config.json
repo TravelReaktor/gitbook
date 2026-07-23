@@ -1,0 +1,9 @@
+{
+    "dev.icligo.com": {
+        "hostname": "dev.icligo.com",
+        "source": 3301,
+        "target": 3000,
+        "cert": "./server/certs/dev.icligo.com.crt",
+        "key": "./server/certs/dev.icligo.com.key"
+    }
+}

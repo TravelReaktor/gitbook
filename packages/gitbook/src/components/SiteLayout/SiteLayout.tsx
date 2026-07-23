@@ -4,7 +4,6 @@ import type { Metadata, Viewport } from 'next';
 import React from 'react';
 import * as ReactDOM from 'react-dom';
 
-import { AdminToolbar } from '@/components/AdminToolbar';
 import { CookiesToast } from '@/components/Cookies';
 import { LoadIntegrations } from '@/components/Integrations';
 import { SpaceLayout } from '@/components/SpaceLayout';
@@ -96,7 +95,7 @@ export async function SiteLayout(props: {
 
             <RocketLoaderDetector />
 
-            <AdminToolbar context={context} />
+            {/*<AdminToolbar context={context} />*/}
         </SiteLayoutClientContexts>
     );
 }

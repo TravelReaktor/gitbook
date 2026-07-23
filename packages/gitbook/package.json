@@ -119,12 +119,16 @@
         "typescript": "catalog:",
         "vercel": "50.37.3",
         "wrangler": "^4.79.0",
-        "rss-parser": "^3.13.0"
+        "rss-parser": "^3.13.0",
+        "local-ssl-proxy": "2.0.5"
     },
     "scripts": {
         "generate": "./scripts/generate.sh",
         "clean": "rm -rf ./.next && rm -rf ./public/~gitbook/static/icons && rm -rf ./public/~gitbook/static/math",
         "dev": "env-cmd --silent -f ../../.env.local next --webpack",
+        "dev:https": "bun dev -p 3000",
+        "start:https": "env-cmd --silent -f ../../.env.local next start",
+        "https-proxy": "local-ssl-proxy --config ./server/config.json",
         "build": "env-cmd --silent -f ../../.env.local next build --webpack",
         "build:local": "GITBOOK_URL=http://localhost:3000 next build --webpack",
         "start": "GITBOOK_URL=http://localhost:3000 next start",
