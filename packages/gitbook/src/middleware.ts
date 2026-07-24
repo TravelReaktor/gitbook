@@ -163,7 +163,7 @@ async function serveSiteRoutes(requestURL: URL, request: NextRequest) {
         return null;
     }
 
-    const { url: siteRequestURL, mode, servedAtRoot } = match;
+    const { url: siteRequestURL, mode } = match;
 
     // Normalize URL after extracting the URL from the request to make sure the client is redirected to the proper one
     const normalizationResponse = normalizeRequestURL(siteRequestURL);

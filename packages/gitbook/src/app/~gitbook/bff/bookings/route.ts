@@ -1,5 +1,15 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
+const getHeaders = (req: NextRequest): RequestInit['headers'] => {
+    const accessToken = req.cookies.get('access_token')?.value;
+
+    return accessToken
+        ? {
+              Cookie: `access_token=${encodeURIComponent(accessToken)}`,
+          }
+        : {};
+};
+
 export async function GET(req: NextRequest) {
     const incoming = req.nextUrl.searchParams;
 
@@ -22,7 +32,7 @@ export async function GET(req: NextRequest) {
 
     const response = await fetch(
         `https://api.icligo.com/legacy-system/v1/bookings?${params.toString()}`,
-        { headers: req.headers, method: 'GET' }
+        { headers: getHeaders(req), method: 'GET' }
     );
 
     try {
