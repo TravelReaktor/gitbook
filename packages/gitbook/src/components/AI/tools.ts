@@ -99,6 +99,36 @@ const getBooking = async (bookingId: string, locale: string) => {
     return await response.json();
 };
 
+// Reformata strings de data ISO (ex. "2026-01-06T21:00:00.000+00:00") para o formato da língua
+// do utilizador (DD/MM/YYYY em pt, MM/DD/YYYY em en), para o assistente não mostrar timestamps
+// ISO ao utilizador. Usa UTC para manter a data-calendário tal como vem da API. Percorre a
+// estrutura recursivamente porque não conhecemos os nomes dos campos de data à partida.
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+
+const formatBookingDates = (value: unknown, locale: string): unknown => {
+    if (typeof value === 'string' && ISO_DATE_RE.test(value)) {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return value;
+        }
+        return new Intl.DateTimeFormat(locale, {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            timeZone: 'UTC',
+        }).format(date);
+    }
+    if (Array.isArray(value)) {
+        return value.map((item) => formatBookingDates(item, locale));
+    }
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(
+            Object.entries(value).map(([key, item]) => [key, formatBookingDates(item, locale)])
+        );
+    }
+    return value;
+};
+
 // Os formulários (suporte/reclamação, etc.) vivem sempre no MyOffice, independentemente de o
 // assistente correr embebido no MyOffice ou na documentação standalone.
 const MY_OFFICE_URL = 'https://myoffice.icligo.com';
@@ -122,7 +152,9 @@ export function getTools(
                 'query - NEVER invent, guess or infer bookings, dates, destinations, prices, states or any other value, and ' +
                 'NEVER add bookings that were not returned. ' +
                 'This returns at most the first 20 matching bookings, sorted by check-in date; if there may be more, say so ' +
-                'instead of claiming it is the complete list.',
+                'instead of claiming it is the complete list. ' +
+                'Dates are already formatted for the current language (DD/MM/YYYY or MM/DD/YYYY) - present them to the user ' +
+                'exactly as returned; NEVER show raw ISO timestamps.',
             inputSchema: {
                 type: 'object',
                 properties: {
@@ -157,7 +189,7 @@ export function getTools(
                 const sort = { sort: 'checkinDate', order: 'ascend' };
 
                 const data = await getBookings(0, 20, filters, sort, locale);
-                const bookings = data.content ?? [];
+                const bookings = (formatBookingDates(data.content ?? [], locale) as unknown[]) ?? [];
 
                 return {
                     output: { bookings, count: bookings.length },
