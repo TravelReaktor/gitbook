@@ -330,7 +330,7 @@ export function AIChatProvider(props: {
 
             // Execute a tool call
             const executeToolCall = async (event: AIStreamResponseToolCallPending) => {
-                const tools = getTools(builtInTools);
+                const tools = getTools(builtInTools, language.locale);
                 const toolDef = tools.find((tool) => tool.name === event.toolCall.tool);
 
                 if (!toolDef || !('execute' in toolDef)) {
@@ -366,7 +366,7 @@ export function AIChatProvider(props: {
 
             let toolToExecute: AIStreamResponseToolCallPending | null = null;
             try {
-                const tools = getTools(builtInTools);
+                const tools = getTools(builtInTools, language.locale);
                 const stream = await streamAIChatResponse({
                     message: input.message,
                     toolCall: input.toolCall,
