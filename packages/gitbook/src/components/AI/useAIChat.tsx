@@ -21,6 +21,7 @@ import { addRecentSearchQuery } from '../Search/recent-queries';
 import type { AnyAIControl } from './controls';
 import { ConfirmControlDef, ConfirmControlOutputSchema } from './controls/ConfirmControl';
 import { type AIChatReference, serializeReferences } from './references';
+import { serializeAssistantRules } from './rules';
 import { type RenderAIMessageOptions, streamAIChatResponse } from './server-actions';
 import { getTools } from './tools';
 import { useAIMessageContextRef } from './useAIMessageContext';
@@ -608,7 +609,7 @@ export function AIChatProvider(props: {
                 return;
             }
 
-            const wireMessage = `${serializeReferences(references)}${input.message}`;
+            const wireMessage = `${serializeAssistantRules()}${serializeReferences(references)}${input.message}`;
 
             // For first message, update the ask parameter in URL
             if (messages.length === 0) {

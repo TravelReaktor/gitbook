@@ -129,9 +129,32 @@ const formatBookingDates = (value: unknown, locale: string): unknown => {
     return value;
 };
 
+// Número de passageiros de uma reserva = adultos + crianças, que vêm em `tripInfo`. Algumas reservas
+// (ex. eventos) não têm estes campos; aí devolvemos null (passageiros não aplicável) para o assistente
+// poder dizer "não disponível" sem inventar um valor.
+const countPassengers = (booking: Record<string, unknown>): number | null => {
+    const trip = booking?.tripInfo;
+    if (!trip || typeof trip !== 'object') {
+        return null;
+    }
+    const { adults, childs } = trip as { adults?: unknown; childs?: unknown };
+    if (typeof adults !== 'number' && typeof childs !== 'number') {
+        return null;
+    }
+    return (typeof adults === 'number' ? adults : 0) + (typeof childs === 'number' ? childs : 0);
+};
+
 // Os formulários (suporte/reclamação, etc.) vivem sempre no MyOffice, independentemente de o
 // assistente correr embebido no MyOffice ou na documentação standalone.
 const MY_OFFICE_URL = 'https://myoffice.icligo.com';
+
+// URL do formulário de suporte de uma ação. Só se aplica às ações do ramo "Suporte"; `category`/`type`
+// são os códigos devolvidos por `list_booking_actions`. Usado por `open_booking_support_ticket` e por
+// `list_booking_actions` (para o assistente poder mostrar o link de cada ação).
+const buildSupportFormUrl = (locale: string, category: string, type: string, bookingId: string) =>
+    `${MY_OFFICE_URL}/${locale}/forms/support?category=${encodeURIComponent(
+        category
+    )}&type=${encodeURIComponent(type)}&booking=${encodeURIComponent(bookingId)}`;
 
 export function getTools(
     builtInTools: GitBookIntegrationTool[] = [],
@@ -154,7 +177,19 @@ export function getTools(
                 'This returns at most the first 20 matching bookings, sorted by check-in date; if there may be more, say so ' +
                 'instead of claiming it is the complete list. ' +
                 'Dates are already formatted for the current language (DD/MM/YYYY or MM/DD/YYYY) - present them to the user ' +
-                'exactly as returned; NEVER show raw ISO timestamps.',
+                'exactly as returned; NEVER show raw ISO timestamps. ' +
+                'PRESENTATION - the answer MUST always have the SAME structure: list one entry per booking and, for EACH ' +
+                'booking, show EXACTLY these three fields, in this order and with the same layout for every booking: ' +
+                '(1) Locator - from the `locator` field; ' +
+                '(2) Check-in date - from the `checkin` field (already formatted, present it exactly as returned); ' +
+                '(3) Number of passengers - from the `passengers` field (already computed as adults + children); ' +
+                'when `passengers` is null the count is not available for that booking (e.g. event bookings) - show it ' +
+                'as not available. ' +
+                'Label the three fields in the language of the conversation (in Portuguese: "Localizador", ' +
+                '"Data de check-in", "Número de passageiros"). Keep the layout identical across all bookings. ' +
+                'If any of these three values is missing from the data for a booking, still show the field but state that ' +
+                'it is not available - do NOT drop the field, so the structure stays consistent. ' +
+                'Do NOT add other fields unless the user explicitly asks for more details.',
             inputSchema: {
                 type: 'object',
                 properties: {
@@ -189,7 +224,10 @@ export function getTools(
                 const sort = { sort: 'checkinDate', order: 'ascend' };
 
                 const data = await getBookings(0, 20, filters, sort, locale);
-                const bookings = (formatBookingDates(data.content ?? [], locale) as unknown[]) ?? [];
+                const withPassengers = ((data.content ?? []) as Array<Record<string, unknown>>).map(
+                    (booking) => ({ ...booking, passengers: countPassengers(booking) })
+                );
+                const bookings = (formatBookingDates(withPassengers, locale) as unknown[]) ?? [];
 
                 return {
                     output: { bookings, count: bookings.length },
@@ -239,14 +277,21 @@ export function getTools(
                 '(for example: complaint, cancel, modify dates/guests, add insurance, send client data, check-in, ...). ' +
                 'The booking actions are organised as a tree of categories; this tool walks that tree and returns ONLY ' +
                 'the actual available actions (the leaves), each with a `label`, an `action` code, the `category` code of its ' +
-                'parent group, and a `path` showing its category (e.g. "Suporte > Gestão de reserva > Reclamação"). ' +
+                'parent group, a `path` showing its category (e.g. "Suporte > Gestão de reserva > Reclamação"), and a ' +
+                "`formUrl` with the URL of that action's form (null when the action has no direct form, e.g. check-in). " +
                 'Use this ONLY after `list_my_bookings` or `get_booking_details`, and ONLY when the user asks ' +
                 'what they can do, which options/actions are available, or how to manage a specific booking. ' +
                 'If `found` is false the booking could not be located: tell the user you could not find that booking and ' +
                 'do NOT say it has no actions. If `found` is true and the `actions` list is not empty you MUST present those ' +
                 'actions to the user and MUST NOT say the booking has no actions. You MUST NOT invent, assume or list actions ' +
-                'that are not in the returned list, and you MUST NOT explain how to perform them here - to explain the ' +
-                'check-in steps use `explain_booking_checkin`.',
+                'that are not in the returned list. ' +
+                'PRESENTATION - the answer MUST always have the SAME structure: list one entry per available action, with ' +
+                'the same layout for every action. For EACH action show its name (its `label`) together with a link to its ' +
+                'form built from its `formUrl`, as a clickable Markdown link labelled with the action name: [label](formUrl). ' +
+                'Keep the layout identical across all actions. When an action `formUrl` is null it has no direct form: still ' +
+                'show the action but say there is no form link for it (for check-in, tell the user to ask how to do the ' +
+                'check-in, which is handled by `explain_booking_checkin`). NEVER invent or alter a URL - use `formUrl` ' +
+                'exactly as returned - and do NOT describe the steps to perform an action here; just give its form link.',
             inputSchema: {
                 type: 'object',
                 properties: {
@@ -295,9 +340,21 @@ export function getTools(
                 }
 
                 const found = Boolean(record);
-                const actions = found
-                    ? collectAvailableActions(record?.actions as BookingActionNode[] | undefined)
-                    : [];
+                const actions = (
+                    found
+                        ? collectAvailableActions(
+                              record?.actions as BookingActionNode[] | undefined
+                          )
+                        : []
+                ).map((action) => ({
+                    ...action,
+                    // O formulário de suporte só existe para o ramo "Suporte"; para as restantes ações
+                    // (ex. check-in) não há formulário direto e o URL fica null.
+                    formUrl:
+                        action.category && action.path.startsWith('Suporte')
+                            ? buildSupportFormUrl(locale, action.category, action.action, bookingId)
+                            : null,
+                }));
 
                 return {
                     output: { bookingId, found, actions },
@@ -349,9 +406,7 @@ export function getTools(
                 };
 
                 // Locale da variante de língua atual, para abrir o formulário na língua correta.
-                const url = `${MY_OFFICE_URL}/${locale}/forms/support?category=${encodeURIComponent(
-                    category
-                )}&type=${encodeURIComponent(type)}&booking=${encodeURIComponent(bookingId)}`;
+                const url = buildSupportFormUrl(locale, category, type, bookingId);
 
                 window.open(url, '_blank', 'noopener,noreferrer');
 
